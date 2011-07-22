@@ -11,5 +11,11 @@ Example
     acts_as_nested_set
   end
 
+  # In this branch, I has changed a little, so that, rgt and lft are updated automatically.
+  # And, you need set :parent_id first, otherwise, root object will be created
+  node = Node.new(:parent_id => 20)
+  node.data = ...
+  node.save
+
 
 Copyright (c) 2007 David Heinemeier Hansson, released under the MIT license  
