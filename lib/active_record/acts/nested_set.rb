@@ -99,6 +99,8 @@ module ActiveRecord
             scope_condition_method = "def scope_condition() \"#{configuration[:scope]}\" end"
           end
 
+		  belongs_to :parent, :class_name => name, :foreign_key => configuration[:parent_column]
+
           class_eval <<-EOV
             include ActiveRecord::Acts::NestedSet::InstanceMethods
 
@@ -132,43 +134,33 @@ module ActiveRecord
           !root? && !child?
         end
 
+
         # Adds a child to this object in the tree.  If this object hasn't been initialized,
         # it gets set up as a root node.  Otherwise, this method will update all of the
         # other elements in the tree and shift them to the right, keeping everything
         # balanced. 
-        def add_child( child )
-          self.reload
-          child.reload
-
-          if child.root?
-            raise "Adding sub-tree isn\'t currently supported"
+        def after_save
+          parent_id = self[parent_column]
+					if (parent_id == 0 || parent_id.nil?)
+						# Add new tree
+						self[left_col_name] = 1
+						self[right_col_name] = 2
           else
-            if ( (self[left_col_name] == nil) || (self[right_col_name] == nil) )
-              # Looks like we're now the root node!  Woo
-              self[left_col_name] = 1
-              self[right_col_name] = 4
+						parent_node = self.parent
+						return if !parent_node	# Error
 
-              # What do to do about validation?
-              return nil unless self.save
-
-              child[parent_column] = self.id
-              child[left_col_name] = 2
-              child[right_col_name]= 3
-              return child.save
-            else
-              # OK, we need to add and shift everything else to the right
-              child[parent_column] = self.id
-              right_bound = self[right_col_name]
-              child[left_col_name] = right_bound
-              child[right_col_name] = right_bound + 1
-              self[right_col_name] += 2
-              self.class.base_class.transaction {
-                self.class.base_class.update_all( "#{left_col_name} = (#{left_col_name} + 2)",  "#{scope_condition} AND #{left_col_name} >= #{right_bound}" )
-                self.class.base_class.update_all( "#{right_col_name} = (#{right_col_name} + 2)",  "#{scope_condition} AND #{right_col_name} >= #{right_bound}" )
-                self.save
-                child.save
-              }
-            end
+						# Add a child node
+            # OK, we need to add and shift everything else to the right
+            right_bound = parent_node[right_col_name]
+            self[left_col_name] = right_bound
+            self[right_col_name] = right_bound + 1
+            parent_node[right_col_name] += 2
+            self.class.base_class.transaction {
+              self.class.base_class.update_all( "#{left_col_name} = (#{left_col_name} + 2)",  "#{scope_condition} AND #{left_col_name} >= #{right_bound}" )
+              self.class.base_class.update_all( "#{right_col_name} = (#{right_col_name} + 2)",  "#{scope_condition} AND #{right_col_name} >= #{right_bound}" )
+              parent_node.save
+              self.save
+            }
           end
         end
 
