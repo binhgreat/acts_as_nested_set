@@ -139,7 +139,7 @@ module ActiveRecord
         # it gets set up as a root node.  Otherwise, this method will update all of the
         # other elements in the tree and shift them to the right, keeping everything
         # balanced. 
-        def after_save
+        def after_create
           parent_id = self[parent_column]
 					if (parent_id == 0 || parent_id.nil?)
 						# Add new tree
